@@ -1,0 +1,63 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/automationRules",
+      "apiVersion": "2023-12-01-preview",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', guid('dovetail-tag-ot'))]",
+      "properties": {
+        "displayName": "Dovetail - Tag OT Incidents and Enforce Severity Floor",
+        "order": 100,
+        "triggeringLogic": {
+          "isEnabled": true,
+          "triggersOn": "Incidents",
+          "triggersWhen": "Created",
+          "conditions": [
+            {
+              "conditionType": "Property",
+              "conditionProperties": {
+                "propertyName": "IncidentTitle",
+                "operator": "Contains",
+                "propertyValues": [
+                  "OT",
+                  "IoT",
+                  "SCADA",
+                  "FortiGate"
+                ]
+              }
+            }
+          ]
+        },
+        "actions": [
+          {
+            "order": 1,
+            "actionType": "ModifyProperties",
+            "actionConfiguration": {
+              "labels": [
+                {
+                  "labelName": "OT"
+                },
+                {
+                  "labelName": "dovetail-managed"
+                }
+              ]
+            }
+          },
+          {
+            "order": 2,
+            "actionType": "ModifyProperties",
+            "actionConfiguration": {
+              "severity": "High"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

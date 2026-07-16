@@ -1,0 +1,67 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-12-01-preview",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', guid('dovetail-new-local-admin'))]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "IT - Account Created and Added to Administrators",
+        "description": "An account was created (4720) and added to a local Administrators group (4732) within one hour on the same host. Classic persistence pattern; on EMS-adjacent servers this is high priority regardless of who did it \u2014 validate against the approved-admins watchlist.",
+        "severity": "High",
+        "enabled": true,
+        "query": "let created = SecurityEvent | where EventID == 4720 | project CreatedTime = TimeGenerated, TargetAccount, Computer;\nlet added = SecurityEvent | where EventID == 4732 | where TargetAccount has \"Admin\" or GroupName has \"Admin\" | project AddedTime = TimeGenerated, MemberName, Computer;\ncreated\n| join kind=inner (added) on Computer\n| where AddedTime between (CreatedTime .. 1h)\n| join kind=leftanti (_GetWatchlist(\"approved-admins\") | project TargetAccount = tostring(column_ifexists(\"account\", \"\"))) on TargetAccount\n| project TimeGenerated = AddedTime, TargetAccount, Computer",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT2H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": [
+          "Persistence",
+          "PrivilegeEscalation"
+        ],
+        "techniques": [
+          "T1136",
+          "T1078"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "TargetAccount"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "Computer"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities"
+          }
+        }
+      }
+    }
+  ]
+}

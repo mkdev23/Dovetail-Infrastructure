@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/savedSearches",
+      "apiVersion": "2020-08-01",
+      "name": "[concat(parameters('workspace'), '/dovetail-hunt-rare-outbound')]",
+      "properties": {
+        "category": "Hunting Queries",
+        "displayName": "OT Boundary - Rare Outbound Destinations from OT Zone",
+        "query": "CommonSecurityLog\n| where DeviceVendor == \"Fortinet\" and DeviceAction =~ \"allow\"\n| where TimeGenerated > ago(7d)\n| summarize Hits = count(), Sources = make_set(SourceIP, 10), LastSeen = max(TimeGenerated) by DestinationIP, DestinationPort\n| where Hits < 5\n| order by LastSeen desc",
+        "tags": [
+          {
+            "name": "description",
+            "value": "Destination IPs seen fewer than 5 times in 7 days in FortiGate allow logs from the OT zone. The OT zone should talk to a small, fixed set of destinations \u2014 anything rare deserves a look. Tune the source filter to the OT VLAN range during onboarding."
+          },
+          {
+            "name": "tactics",
+            "value": "CommandAndControl,Exfiltration"
+          }
+        ]
+      }
+    }
+  ]
+}

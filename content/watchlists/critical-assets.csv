@@ -1,0 +1,9 @@
+hostname,zone,purdue_level,asset_type,criticality,notes
+EMS-SRV-01,control-room,L3,ems-server,critical,Primary EMS application server
+EMS-SRV-02,control-room,L3,ems-server,critical,EMS standby
+HIST-SRV-01,control-room,L3,historian,critical,Process historian
+ENG-WKS-01,control-room,L2,engineering-workstation,critical,SCADA engineering workstation
+JMP-SRV-01,it-dmz,L3.5,jump-host,high,IT-to-OT jump host
+FWD-SRV-01,it-dmz,L3.5,egress-forwarder,critical,Egress server behind data diode - log pipeline
+D4IOT-SNS-01,it-dmz,L3.5,ot-sensor,high,Defender for IoT sensor - control room TAP
+D4IOT-SNS-02,substation-01,L2,ot-sensor,high,Defender for IoT sensor - substation TAP

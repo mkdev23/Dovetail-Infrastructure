@@ -1,0 +1,111 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "Dovetail Cyber — Azure Lighthouse onboarding. Run ONCE per enclave tenant, at subscription scope, by an account holding Owner in the enclave subscription. Grants Dovetail SOC delegated access: Sentinel Reader permanent, Sentinel Responder/Contributor eligible via PIM (just-in-time, audit-logged in the enclave tenant)."
+  },
+  "parameters": {
+    "mspOfferName": {
+      "type": "string",
+      "defaultValue": "Dovetail Cyber - Managed Security Operations",
+      "metadata": { "description": "Name shown to the enclave customer under Service Providers" }
+    },
+    "mspOfferDescription": {
+      "type": "string",
+      "defaultValue": "24/7 security monitoring and incident response delivered via Microsoft Sentinel. Access is delegated, scoped, and fully audited in this tenant."
+    },
+    "managedByTenantId": {
+      "type": "string",
+      "metadata": { "description": "Dovetail Cyber parent tenant ID" }
+    },
+    "socReaderGroupId": {
+      "type": "string",
+      "metadata": { "description": "Object ID of Dovetail 'SOC Analysts' group in the Dovetail tenant — permanent Sentinel Reader" }
+    },
+    "socResponderGroupId": {
+      "type": "string",
+      "metadata": { "description": "Object ID of Dovetail 'SOC Responders' group — PIM-eligible Sentinel Responder" }
+    },
+    "socEngineerGroupId": {
+      "type": "string",
+      "metadata": { "description": "Object ID of Dovetail 'SOC Engineers' group — PIM-eligible Sentinel Contributor for content/connector work" }
+    },
+    "pimApproverGroupId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": { "description": "Optional: Dovetail group whose members approve PIM elevations. Empty = no approval step, elevation still logged." }
+    },
+    "maxActivationDuration": {
+      "type": "string",
+      "defaultValue": "PT8H",
+      "metadata": { "description": "Max JIT elevation duration (ISO 8601)" }
+    }
+  },
+  "variables": {
+    "roles": {
+      "sentinelReader": "8d289c81-5878-46d4-8554-54e1e3d8b5cb",
+      "sentinelResponder": "3e150937-b8fe-4cfb-8069-0eaf05ecd056",
+      "sentinelContributor": "ab8e14d6-4a8e-48c8-a4b4-e4d21c9d0b4b"
+    },
+    "registrationName": "[guid(parameters('mspOfferName'), parameters('managedByTenantId'))]",
+    "approvers": "[if(empty(parameters('pimApproverGroupId')), json('[]'), createArray(createObject('principalId', parameters('pimApproverGroupId'), 'principalIdDisplayName', 'Dovetail PIM Approvers')))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.ManagedServices/registrationDefinitions",
+      "apiVersion": "2022-10-01",
+      "name": "[variables('registrationName')]",
+      "properties": {
+        "registrationDefinitionName": "[parameters('mspOfferName')]",
+        "description": "[parameters('mspOfferDescription')]",
+        "managedByTenantId": "[parameters('managedByTenantId')]",
+        "authorizations": [
+          {
+            "principalId": "[parameters('socReaderGroupId')]",
+            "principalIdDisplayName": "Dovetail SOC Analysts (Reader)",
+            "roleDefinitionId": "[variables('roles').sentinelReader]"
+          }
+        ],
+        "eligibleAuthorizations": [
+          {
+            "principalId": "[parameters('socResponderGroupId')]",
+            "principalIdDisplayName": "Dovetail SOC Responders (JIT)",
+            "roleDefinitionId": "[variables('roles').sentinelResponder]",
+            "justInTimeAccessPolicy": {
+              "multiFactorAuthProvider": "Azure",
+              "maximumActivationDuration": "[parameters('maxActivationDuration')]",
+              "managedByTenantApprovers": "[variables('approvers')]"
+            }
+          },
+          {
+            "principalId": "[parameters('socEngineerGroupId')]",
+            "principalIdDisplayName": "Dovetail SOC Engineers (JIT)",
+            "roleDefinitionId": "[variables('roles').sentinelContributor]",
+            "justInTimeAccessPolicy": {
+              "multiFactorAuthProvider": "Azure",
+              "maximumActivationDuration": "[parameters('maxActivationDuration')]",
+              "managedByTenantApprovers": "[variables('approvers')]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.ManagedServices/registrationAssignments",
+      "apiVersion": "2022-10-01",
+      "name": "[variables('registrationName')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedServices/registrationDefinitions', variables('registrationName'))]"
+      ],
+      "properties": {
+        "registrationDefinitionId": "[resourceId('Microsoft.ManagedServices/registrationDefinitions', variables('registrationName'))]"
+      }
+    }
+  ],
+  "outputs": {
+    "registrationDefinitionId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.ManagedServices/registrationDefinitions', variables('registrationName'))]"
+    }
+  }
+}

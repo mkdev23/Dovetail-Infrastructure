@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/savedSearches",
+      "apiVersion": "2020-08-01",
+      "name": "[concat(parameters('workspace'), '/dovetail-hunt-auth-pattern')]",
+      "properties": {
+        "category": "Hunting Queries",
+        "displayName": "IT - Accounts Authenticating to New Hosts",
+        "query": "let baseline = SecurityEvent | where EventID == 4624 | where TimeGenerated between (ago(14d) .. ago(1d)) | distinct TargetUserName, Computer;\nSecurityEvent\n| where EventID == 4624 and LogonType in (2, 3, 10)\n| where TimeGenerated > ago(1d)\n| join kind=leftanti (baseline) on TargetUserName, Computer\n| summarize FirstSeen = min(TimeGenerated), Logons = count() by TargetUserName, Computer, LogonType",
+        "tags": [
+          {
+            "name": "description",
+            "value": "Accounts logging on to hosts they have not touched in 14 days. Baseline lateral-movement hunt across EMS/historian/jump-host tier. Expect noise during commissioning; valuable once steady-state."
+          },
+          {
+            "name": "tactics",
+            "value": "LateralMovement"
+          }
+        ]
+      }
+    }
+  ]
+}

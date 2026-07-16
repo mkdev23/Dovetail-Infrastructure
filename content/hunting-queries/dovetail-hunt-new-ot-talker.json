@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/savedSearches",
+      "apiVersion": "2020-08-01",
+      "name": "[concat(parameters('workspace'), '/dovetail-hunt-new-ot-talker')]",
+      "properties": {
+        "category": "Hunting Queries",
+        "displayName": "OT - Devices Seen for the First Time in 14 Days",
+        "query": "let known = CommonSecurityLog | where TimeGenerated between (ago(14d) .. ago(1d)) | distinct DeviceName;\nCommonSecurityLog\n| where TimeGenerated > ago(1d)\n| join kind=leftanti (known) on DeviceName\n| summarize FirstSeen = min(TimeGenerated), Events = count() by DeviceName, DeviceVendor",
+        "tags": [
+          {
+            "name": "description",
+            "value": "Devices appearing in CEF/syslog telemetry that were never seen in the prior 14 days. In a static OT network, new talkers are either commissioning work or a problem. Run weekly; reconcile against the critical-assets watchlist and commissioning schedule."
+          },
+          {
+            "name": "tactics",
+            "value": "Discovery"
+          }
+        ]
+      }
+    }
+  ]
+}

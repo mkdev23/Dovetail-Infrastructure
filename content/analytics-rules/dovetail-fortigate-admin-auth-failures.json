@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-12-01-preview",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', guid('dovetail-fgt-admin-authfail'))]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "OT Boundary - FortiGate Admin Authentication Failures",
+        "description": "5+ failed admin logins to the FortiGate OT boundary firewall within 15 minutes. The FortiGate is the enforcement point between OT and IT zones \u2014 credentialed compromise here undermines the entire segmentation model. Verify source, check for follow-on successful login, escalate to OT lead if source is unrecognized.",
+        "severity": "High",
+        "enabled": true,
+        "query": "CommonSecurityLog\n| where DeviceVendor == \"Fortinet\"\n| where DeviceEventClassID has \"logauth\" or (Activity has \"login\" and Activity has \"fail\")\n| where AdditionalExtensions has \"admin\" or DestinationUserName has \"admin\"\n| summarize FailedAttempts = count(), FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated) by SourceIP, DestinationUserName\n| where FailedAttempts >= 5",
+        "queryFrequency": "PT15M",
+        "queryPeriod": "PT15M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": [
+          "CredentialAccess"
+        ],
+        "techniques": [
+          "T1110"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "SourceIP"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities"
+          }
+        }
+      }
+    }
+  ]
+}

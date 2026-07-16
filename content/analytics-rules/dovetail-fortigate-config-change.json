@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-12-01-preview",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', guid('dovetail-fgt-config-change'))]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "OT Boundary - FortiGate Configuration Change",
+        "description": "Configuration change detected on the FortiGate OT boundary firewall. In this environment all firewall changes should map to an approved change window. Unplanned changes to OT boundary policy are treated as potential defense evasion until confirmed with the change calendar.",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "CommonSecurityLog\n| where DeviceVendor == \"Fortinet\"\n| where Activity has_any (\"Configuration is changed\", \"config\", \"policy\") and Activity has_any (\"changed\", \"edited\", \"added\", \"deleted\")\n| project TimeGenerated, SourceIP, DestinationUserName, Activity, Message",
+        "queryFrequency": "PT30M",
+        "queryPeriod": "PT30M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": [
+          "DefenseEvasion"
+        ],
+        "techniques": [
+          "T1562"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "SourceIP"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities"
+          }
+        }
+      }
+    }
+  ]
+}

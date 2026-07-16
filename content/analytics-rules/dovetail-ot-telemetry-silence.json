@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-12-01-preview",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', guid('dovetail-ot-telemetry-silence'))]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "OT - Telemetry Silence from Known Log Source",
+        "description": "A device that reported CEF/syslog telemetry in the prior 24h has gone silent for 2+ hours while the forwarder heartbeat is still healthy. In a unidirectional (data diode) architecture there is no inbound path to probe the source \u2014 silence IS the alarm. Common causes: TAP failure, sensor down, diode transmit fault, source-side config change. Complements the forwarder heartbeat-loss rule, which only catches whole-pipeline failure.",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let baseline = CommonSecurityLog | where TimeGenerated between (ago(24h) .. ago(2h)) | distinct DeviceName;\nlet recent = CommonSecurityLog | where TimeGenerated > ago(2h) | distinct DeviceName;\nbaseline\n| join kind=leftanti (recent) on DeviceName\n| extend Computer = DeviceName, TimeGenerated = now()",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": [
+          "DefenseEvasion"
+        ],
+        "techniques": [
+          "T1562"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "Computer"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities"
+          }
+        }
+      }
+    }
+  ]
+}

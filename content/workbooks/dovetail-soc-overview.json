@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    },
+    "workspaceResourceId": {
+      "type": "string",
+      "defaultValue": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspace'))]"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Insights/workbooks",
+      "apiVersion": "2022-04-01",
+      "name": "[guid('dovetail-soc-overview', parameters('workspace'))]",
+      "location": "[resourceGroup().location]",
+      "kind": "shared",
+      "properties": {
+        "displayName": "Dovetail SOC Overview",
+        "category": "sentinel",
+        "sourceId": "[parameters('workspaceResourceId')]",
+        "serializedData": "{\"version\": \"Notebook/1.0\", \"items\": [{\"type\": 1, \"content\": {\"json\": \"## Dovetail SOC \\u2014 Enclave Overview\\nPipeline health, incident load, and boundary activity for this enclave. In a diode architecture, the top row is the one that matters: if telemetry stops, everything below it is stale.\"}, \"name\": \"header\"}, {\"type\": 3, \"content\": {\"version\": \"KqlItem/1.0\", \"query\": \"Heartbeat | summarize LastHeartbeat = max(TimeGenerated) by Computer | extend Status = iff(LastHeartbeat > ago(10m), 'Healthy', 'STALE'), MinutesSince = datetime_diff('minute', now(), LastHeartbeat) | project Computer, Status, MinutesSince, LastHeartbeat\", \"size\": 0, \"title\": \"Forwarder / Agent Heartbeat\", \"timeContext\": {\"durationMs\": 86400000}, \"queryType\": 0, \"resourceType\": \"microsoft.operationalinsights/workspaces\", \"visualization\": \"table\"}, \"name\": \"heartbeat\"}, {\"type\": 3, \"content\": {\"version\": \"KqlItem/1.0\", \"query\": \"union withsource=TableName CommonSecurityLog, Syslog, SecurityEvent | summarize Events = count() by TableName, bin(TimeGenerated, 1h) | render timechart\", \"size\": 0, \"title\": \"Ingestion Volume by Table (24h)\", \"timeContext\": {\"durationMs\": 86400000}, \"queryType\": 0, \"resourceType\": \"microsoft.operationalinsights/workspaces\", \"visualization\": \"timechart\"}, \"name\": \"ingestion\"}, {\"type\": 3, \"content\": {\"version\": \"KqlItem/1.0\", \"query\": \"SecurityIncident | summarize arg_max(TimeGenerated, *) by IncidentNumber | summarize Count = count() by Severity, Status | order by Severity\", \"size\": 1, \"title\": \"Open Incidents by Severity\", \"timeContext\": {\"durationMs\": 604800000}, \"queryType\": 0, \"resourceType\": \"microsoft.operationalinsights/workspaces\", \"visualization\": \"tiles\", \"tileSettings\": {\"showBorder\": true}}, \"name\": \"incidents\"}, {\"type\": 3, \"content\": {\"version\": \"KqlItem/1.0\", \"query\": \"CommonSecurityLog | where DeviceVendor == 'Fortinet' | where DeviceAction !~ 'allow' | summarize Blocks = count() by SourceIP, DestinationIP, DestinationPort | top 20 by Blocks\", \"size\": 0, \"title\": \"Top FortiGate Denies (OT Boundary)\", \"timeContext\": {\"durationMs\": 86400000}, \"queryType\": 0, \"resourceType\": \"microsoft.operationalinsights/workspaces\", \"visualization\": \"table\"}, \"name\": \"fgtdenies\"}, {\"type\": 3, \"content\": {\"version\": \"KqlItem/1.0\", \"query\": \"SecurityAlert | where ProviderName has 'IoT' | summarize Alerts = count() by AlertName, AlertSeverity | order by Alerts desc\", \"size\": 0, \"title\": \"Defender for IoT Alerts (7d)\", \"timeContext\": {\"durationMs\": 604800000}, \"queryType\": 0, \"resourceType\": \"microsoft.operationalinsights/workspaces\", \"visualization\": \"table\"}, \"name\": \"d4iot\"}]}"
+      }
+    }
+  ]
+}

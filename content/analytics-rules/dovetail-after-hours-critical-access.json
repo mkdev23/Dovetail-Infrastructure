@@ -1,0 +1,65 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-12-01-preview",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', guid('dovetail-afterhours-critical'))]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "OT/IT - After-Hours Interactive Logon to Critical Asset",
+        "description": "Interactive or remote-interactive logon (4624 type 2/10) to a critical-asset host outside 06:00-20:00 local. Legitimate emergency maintenance happens \u2014 this rule exists so it is SEEN and confirmed, not so it is assumed. Triage: confirm with on-call maintenance schedule before escalating.",
+        "severity": "Low",
+        "enabled": true,
+        "query": "SecurityEvent\n| where EventID == 4624 and LogonType in (2, 10)\n| join kind=inner (_GetWatchlist(\"critical-assets\") | project Computer = tostring(column_ifexists(\"hostname\",\"\"))) on Computer\n| extend LocalHour = hourofday(TimeGenerated)\n| where LocalHour < 6 or LocalHour >= 20\n| extend TargetAccount = TargetUserName\n| project TimeGenerated, Computer, TargetAccount, LogonType, IpAddress",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1078"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "TargetAccount"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "Computer"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities"
+          }
+        }
+      }
+    }
+  ]
+}
