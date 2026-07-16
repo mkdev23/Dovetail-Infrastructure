@@ -16,6 +16,12 @@ param notificationWebhookUrl = ''             // Teams/Slack/internal webhook; '
 param deployForwarderVm = true                 // cloud twin of the egress server
 param forwarderSshPublicKey = ''              // required when deployForwarderVm = true
 
+// ---- SC-200 training coverage (demo/dev only — see soc-ops/07-training-tier2.md section 7) ----
+param enableXdrTraining = true                // Defender for Cloud (CSPM, Free) + Entra ID Identity Protection connector
+param defenderForCloudPricingTier = 'Free'    // bump to 'Standard' only after confirming cost with Jay
+param enableDefenderForIdentityConnector = false   // needs an MDI sensor at a real DC first — not provisioned
+param enableDefenderForCloudAppsConnector = false  // needs Defender for Cloud Apps onboarded first — not provisioned
+
 param tags = {
   managedBy: 'dovetail-cyber'
   workload: 'sentinel-enclave'

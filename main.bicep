@@ -40,6 +40,19 @@ param defenderForIotSubscriptionId string = ''
 @description('Enable the Microsoft Defender for Endpoint connector.')
 param enableMde bool = true
 
+@description('Training-only: enable Defender for Cloud (CSPM, Free tier) + the Entra ID Identity Protection connector. Zero incremental cost. Per the 2026-07-16 scoping decision this is demo/dev only — see soc-ops/07-training-tier2.md section 7.')
+param enableXdrTraining bool = false
+
+@description('Defender for Cloud pricing tier when enableXdrTraining is true. Free = Secure Score/recommendations, no cost. Standard = Defender CSPM (attack path analysis, agentless scanning), incurs real cost — confirm with Jay before setting this.')
+@allowed([ 'Free', 'Standard' ])
+param defenderForCloudPricingTier string = 'Free'
+
+@description('Enable the Microsoft Defender for Identity connector. Requires an MDI sensor already installed at the client tenant — see modules/connectors.bicep for why this defaults false.')
+param enableDefenderForIdentityConnector bool = false
+
+@description('Enable the Microsoft Defender for Cloud Apps connector. Requires Defender for Cloud Apps already licensed/onboarded at the client tenant — see modules/connectors.bicep for why this defaults false.')
+param enableDefenderForCloudAppsConnector bool = false
+
 @description('Webhook for High/Medium incident notifications (Teams/Slack/internal endpoint). Empty = skip playbook.')
 @secure()
 param notificationWebhookUrl string = ''
@@ -93,6 +106,21 @@ module connectors 'modules/connectors.bicep' = {
     workspaceName: workspace.outputs.workspaceName
     defenderForIotSubscriptionId: profile == 'ot' ? defenderForIotSubscriptionId : ''
     enableMde: enableMde
+    enableXdrTraining: enableXdrTraining
+    enableDefenderForIdentityConnector: enableDefenderForIdentityConnector
+    enableDefenderForCloudAppsConnector: enableDefenderForCloudAppsConnector
+  }
+}
+
+// Defender for Cloud (CSPM) — subscription-level singleton per plan name, so
+// this converges safely even when multiple enclaves share one subscription
+// (see CLAUDE.md section 4, the three demo enclaves in one Dovetail-Demo sub).
+// Free tier costs nothing; see defenderForCloudPricingTier's description
+// before ever setting Standard.
+resource defenderForCloud 'Microsoft.Security/pricings@2024-01-01' = if (enableXdrTraining) {
+  name: 'CloudPosture'
+  properties: {
+    pricingTier: defenderForCloudPricingTier
   }
 }
 

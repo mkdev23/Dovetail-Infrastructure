@@ -49,11 +49,13 @@ content/
   profiles/
     ot/                         # deploys only when profile = 'ot'
       analytics-rules/
+      automation-rules/
       hunting-queries/
       workbooks/
       watchlists/
     it/                         # deploys only when profile = 'it' (identity/endpoint/SaaS)
       analytics-rules/
+      automation-rules/
       hunting-queries/
       workbooks/
       watchlists/
@@ -61,7 +63,7 @@ content/
     health/                     # Ministry of Health demo (IT-profile flavored)
       workbooks/
       watchlists/
-    utility/                    # utility flavor (can alias/point to profiles/ot demo assets)
+    utility/                    # utility flavor demo pack (see §3a)
       workbooks/
 ```
 
@@ -81,6 +83,20 @@ baseline, and if an OT-specialized variant adds value, put that in profiles/ot.
 | `dovetail-fortigate-admin-auth-failures.json` | **profiles/ot** | FortiGate-specific. OT boundary. Move. |
 | `dovetail-fortigate-config-change.json` | **profiles/ot** | FortiGate-specific. Move. |
 | `dovetail-ot-telemetry-silence.json` | **profiles/ot** | CEF/diode-specific. Move. |
+
+### 1a-bis. How to classify the existing automation rules and hunting queries
+
+The 5 files under `content/automation-rules/` and `content/hunting-queries/` also
+need to move — the target tree above gives both `baseline/` and `profiles/ot/` /
+`profiles/it/` an `automation-rules/` and `hunting-queries/` slot for exactly this.
+
+| Current file | Destination | Action |
+|---|---|---|
+| `dovetail-autoclose-informational.json` (automation-rules) | **baseline** | Neutral triage automation. Move as-is. |
+| `dovetail-tag-ot-incidents.json` (automation-rules) | **profiles/ot** | OT-specific tagging logic. Move. |
+| `dovetail-hunt-auth-outside-pattern.json` (hunting-queries) | **baseline** | Neutral auth-pattern hunt. Move as-is; strip any OT wording in the description. |
+| `dovetail-hunt-new-ot-talker.json` (hunting-queries) | **profiles/ot** | OT network-talker hunt. Move. |
+| `dovetail-hunt-rare-outbound-ot.json` (hunting-queries) | **profiles/ot** | OT egress hunt. Move. |
 
 ### 1b. Watchlists
 - `critical-assets.csv` and `approved-admins.csv` become **baseline** watchlists
@@ -167,16 +183,36 @@ Then `verticals/health/`:
 **Tone/accuracy note:** keep MoH sample data obviously synthetic (hostnames like
 `MOH-HIS-APP-01`, no real patient data, no real IPs). This is a demo prop.
 
+### 3a. New: utility vertical (demo flavor)
+
+`verticals/utility/` is a light flavor pack, not a new content type — it should
+NOT duplicate `profiles/ot`'s analytics rules or watchlists (those already exist
+there). Build just:
+- `content/verticals/utility/workbooks/dovetail-utility-overview.json` — a
+  utility-company-titled SOC overview workbook that reframes the `profiles/ot`
+  panels (FortiGate denies, D4IoT alerts, OT asset silence) for a utility-customer
+  demo audience — same idea as the MoH workbook above, but for the OT side. It can
+  reuse/alias the `profiles/ot` workbook's queries; the point is title/branding for
+  the demo, not new detections.
+
+Wire it into the OT demo enclave: `enclave-demo-ot.bicepparam`'s packs become
+`['baseline','profiles/ot','verticals/utility']` (see §4).
+
 ---
 
 ## 4. New demo enclave param files
 
 Create these in `enclaves/` (copy the `_template.bicepparam` pattern, keep the lab
-`enableMde=false` and forwarder-VM choices consistent with existing demo file):
+`enableMde=false` and forwarder-VM choices consistent with existing demo file).
 
-- `enclave-demo-ot.bicepparam` — profile `ot`, packs `['baseline','profiles/ot']`,
-  the current LEC/utility demo. (This is essentially today's `enclave-demo` renamed;
-  preserve its settings.)
+**Note:** `enclave-dev.bicepparam` and `enclave-lec.bicepparam` both still carry a
+leftover header comment reading "copy to enclave-demo.bicepparam" from when they
+were copied from `_template.bicepparam`. Fix each new file's header comment to
+reference its own filename — don't propagate that copy-paste bug again.
+
+- `enclave-demo-ot.bicepparam` — profile `ot`, packs
+  `['baseline','profiles/ot','verticals/utility']`, the current LEC/utility demo.
+  (This is essentially today's `enclave-demo` renamed; preserve its settings.)
 - `enclave-demo-moh.bicepparam` — profile `it`, packs
   `['baseline','profiles/it','verticals/health']`, a Ministry of Health demo.
 - `enclave-demo-baseline.bicepparam` — profile `it`, packs `['baseline']` only, a
@@ -205,34 +241,41 @@ per subscription (it should — RG name derives from `enclaveName`); if not, fla
 
 ## 6. Definition of done
 
-1. `content/` restructured into `baseline/`, `profiles/{ot,it}/`, `verticals/health/`;
-   all 8 existing rules relocated per the table in §1a; OT content intact under
-   `profiles/ot/`.
+1. `content/` restructured into `baseline/`, `profiles/{ot,it}/`, `verticals/{health,utility}/`;
+   all 8 existing analytics rules, plus the 2 automation rules and 3 hunting queries,
+   relocated per §1a / §1a-bis; OT content intact under `profiles/ot/`.
 2. Baseline rules are genuinely vertical-neutral (no FortiGate/D4IoT/SCADA assumptions);
    watchlists split into baseline sample + ot sample with identical schema.
-3. IT profile pack built out (~4-6 identity/endpoint rules) and MoH vertical workbook +
-   sample assets created.
+3. IT profile pack built out (~4-6 identity/endpoint rules); MoH vertical workbook +
+   sample assets created; utility vertical workbook created and wired into
+   `enclave-demo-ot` (see §3a).
 4. `contentPacks` (or equivalent) mechanism wired through params + deploy script so an
    enclave pulls baseline + its profile + optional vertical, with zero manual steps.
 5. Three demo enclave param files created, all targeting the one Dovetail-Demo sub.
 6. `docs/DEPLOY-INITIAL-ENVIRONMENT.md` updated for the new content flow; a short
    `docs/CONTENT-PACKS.md` written explaining the baseline/profile/vertical model so the
    next person (or demo) understands what deploys where.
-7. `az bicep build --file main.bicep` passes; JSON in `content/` validates.
+7. `README.md`'s repo-layout / content description updated to match the new `content/`
+   structure (it currently documents the old flat, OT-hardwired layout).
+8. `az bicep build --file main.bicep` passes; JSON in `content/` validates.
 
 ---
 
 ## 7. Suggested order of work (small, reviewable commits)
 
-1. Create the new `content/` folders; move the 3 FortiGate/OT-silence rules to
-   `profiles/ot/` unchanged. Commit.
-2. Move + generalize the 5 baseline-bound rules; strip OT wording; split workbook and
-   watchlists. Commit. Verify JSON validates.
+1. Create the new `content/` folders; move the 3 FortiGate/OT-silence analytics rules
+   plus the OT-specific automation rule and hunting queries to `profiles/ot/` unchanged.
+   Commit.
+2. Move + generalize the 5 baseline-bound analytics rules plus the neutral automation
+   rule and hunting query; strip OT wording; split workbook and watchlists. Commit.
+   Verify JSON validates.
 3. Build the IT profile rule pack. Commit.
-4. Build the MoH vertical (workbook + sample assets). Commit.
+4. Build the MoH vertical (workbook + sample assets) and the utility vertical
+   (workbook, wired into `enclave-demo-ot`). Commit.
 5. Wire `contentPacks` through params + deploy script; update deploy doc. Commit.
 6. Add the three demo param files. Commit.
-7. Write `docs/CONTENT-PACKS.md`; run `az bicep build`; final commit.
+7. Write `docs/CONTENT-PACKS.md`; update `README.md`'s content description; run
+   `az bicep build`; final commit.
 
 Keep each commit focused so Jay can review the restructure separately from the new
 content. When unsure whether a rule is "baseline" or "profile," ask: *would this fire

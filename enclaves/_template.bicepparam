@@ -16,6 +16,14 @@ param notificationWebhookUrl = ''             // Teams/Slack/internal webhook; '
 param deployForwarderVm = false               // true for dev/demo; prod uses physical box + Arc
 param forwarderSshPublicKey = ''              // required when deployForwarderVm = true
 
+// ---- SC-200 training coverage (see soc-ops/07-training-tier2.md section 7) ----
+// Leave false for client enclaves. Only enclave-demo/enclave-dev set enableXdrTraining
+// true today (2026-07-16 scoping decision) — confirm with Jay before enabling elsewhere.
+param enableXdrTraining = false
+param defenderForCloudPricingTier = 'Free'
+param enableDefenderForIdentityConnector = false   // needs a real MDI sensor first
+param enableDefenderForCloudAppsConnector = false  // needs Defender for Cloud Apps onboarded first
+
 param tags = {
   managedBy: 'dovetail-cyber'
   workload: 'sentinel-enclave'
